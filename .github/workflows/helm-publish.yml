@@ -22,6 +22,9 @@ env:
 jobs:
   publish-helm-chart:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -32,6 +35,12 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: latest
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: false
 
       - name: Determine chart version
         id: version
@@ -52,19 +61,16 @@ jobs:
 
       - name: Fetch existing index.yaml
         run: |
-          curl -fsSL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/index.yaml" \
+          curl -fsSL "${{ steps.pages.outputs.base_url }}/index.yaml" \
             -o "${GITHUB_WORKSPACE}/charts/index.yaml" || echo "No existing index.yaml found, starting fresh"
 
       - name: Generate index.yaml
         run: |
           cd charts
           helm repo index . \
-            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --url "${{ steps.pages.outputs.base_url }}" \
             --merge index.yaml || true
           cat index.yaml
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -77,8 +83,8 @@ jobs:
 
       - name: Chart repository URL
         run: |
-          echo "Helm chart repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "Helm chart repository URL: ${{ steps.pages.outputs.base_url }}/"
           echo "Install with:"
-          echo "  helm repo add vault-agent https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          echo "  helm repo add vault-agent ${{ steps.pages.outputs.base_url }}"
           echo "  helm repo update"
           echo "  helm upgrade --install vault-agent vault-agent/vault-agent"
