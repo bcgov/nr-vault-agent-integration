@@ -1,0 +1,33 @@
+vaultAgent:
+  image:
+    repository: hashicorp/vault
+    tag: 2.0
+    pullPolicy: IfNotPresent
+  vaultAddress: https://knox.io.nrs.gov.bc.ca
+  approleMountPath: auth/vs_apps_approle
+  loginSecretName: knox-secret
+  pvcSize: 64Mi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  # One entry per consuming application. Each renders to its own file on the
+  # shared PVC so multiple apps can read distinct key/value sets from a
+  # single vault-agent release.
+  #   name:       unique identifier, used for the template/output filenames
+  #   secretPath: Vault KV path to read
+  #   keys:       list of keys to extract from the secret's data
+  #   format:     "env" (KEY=value per line, default), "json" (full secret
+  #               data as JSON), or "raw" (single key's raw value, no name)
+  #   outputFile: absolute path under /vault/output where the rendered
+  #               file is written
+  secrets:
+    - name: demo
+      secretPath: kv/data/demo/secret
+      keys:
+        - value
+      format: raw
+      outputFile: /vault/output/demo-secret

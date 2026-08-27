@@ -1,0 +1,84 @@
+name: Publish Helm Chart to GitHub Pages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  # Relative to the repository root.
+  HELM_CHART: vault-agent
+
+jobs:
+  publish-helm-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Determine chart version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.1-main"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Package chart
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/charts"
+          helm package "${{ env.HELM_CHART }}" \
+            --version "${{ steps.version.outputs.version }}" \
+            --destination "${GITHUB_WORKSPACE}/charts"
+
+      - name: Fetch existing index.yaml
+        run: |
+          curl -fsSL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/index.yaml" \
+            -o "${GITHUB_WORKSPACE}/charts/index.yaml" || echo "No existing index.yaml found, starting fresh"
+
+      - name: Generate index.yaml
+        run: |
+          cd charts
+          helm repo index . \
+            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --merge index.yaml || true
+          cat index.yaml
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./charts"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Chart repository URL
+        run: |
+          echo "Helm chart repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "Install with:"
+          echo "  helm repo add vault-agent https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          echo "  helm repo update"
+          echo "  helm upgrade --install vault-agent vault-agent/vault-agent"

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vault-agent.fullname" . }}
+  labels:
+    {{- include "vault-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "vault-agent.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "vault-agent.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccountName | default "default" }}
+      volumes:
+        - name: output
+          persistentVolumeClaim:
+            claimName: {{ include "vault-agent.fullname" . }}-secrets
+        - name: config
+          configMap:
+            name: {{ include "vault-agent.fullname" . }}-config
+        - name: login
+          secret:
+            secretName: {{ .Values.vaultAgent.loginSecretName }}
+            items:
+              - key: role_id
+                path: role_id
+              - key: secret_id
+                path: secret_id
+      containers:
+        - name: vault-agent
+          image: "{{ .Values.vaultAgent.image.repository }}:{{ .Values.vaultAgent.image.tag }}"
+          imagePullPolicy: {{ .Values.vaultAgent.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args: ["vault agent -config=/vault/agent-config/vault-agent.hcl"]
+          env:
+            - name: VAULT_ADDR
+              value: {{ .Values.vaultAgent.vaultAddress | quote }}
+          resources:
+            {{- toYaml .Values.vaultAgent.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: config
+              mountPath: /vault/agent-config
+            - name: output
+              mountPath: /vault/output
+            - name: login
+              mountPath: /vault/secrets
+              readOnly: true
