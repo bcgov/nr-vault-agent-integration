@@ -1,7 +1,7 @@
 vaultAgent:
   image:
     repository: hashicorp/vault
-    tag: 2.0
+    tag: 2.0.4
     pullPolicy: IfNotPresent
   vaultAddress: https://knox.io.nrs.gov.bc.ca
   approleMountPath: auth/vs_apps_approle
