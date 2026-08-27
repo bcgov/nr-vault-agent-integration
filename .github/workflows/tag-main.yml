@@ -1,0 +1,45 @@
+name: Tag Main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "vault-agent/Chart.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag-chart-version:
+    name: Tag release from Chart.yaml version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read chart version
+        id: chart
+        run: |
+          version=$(awk -F': *' '/^version:/ { print $2 }' vault-agent/Chart.yaml | tr -d '"')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Chart version: $version"
+
+      - name: Create and push tag
+        env:
+          TAG: v${{ steps.chart.outputs.version }}
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "vault-agent chart $TAG"
+          git push origin "$TAG"

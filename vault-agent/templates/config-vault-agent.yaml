@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vault-agent.fullname" . }}-config
+  labels:
+    {{- include "vault-agent.labels" . | nindent 4 }}
+data:
+  vault-agent.hcl: |-
+    vault {
+      address = "{{ .Values.vaultAgent.vaultAddress }}"
+      retry {
+        enabled = true
+        attempts = 12
+        backoff = "10s"
+        max_backoff = "1m"
+      }
+    }
+
+    auto_auth {
+      method {
+        type = "approle"
+        mount_path = "{{ .Values.vaultAgent.approleMountPath }}"
+        config {
+          role_id_file_path = "/vault/secrets/role_id"
+          secret_id_file_path = "/vault/secrets/secret_id"
+          remove_secret_id_file_after_reading = false
+        }
+      }
+    }
+    {{- range .Values.vaultAgent.secrets }}
+
+    template {
+      source = "/vault/agent-config/{{ .name }}.ctmpl"
+      destination = "{{ .outputFile }}"
+      perms = "0600"
+    }
+    {{- end }}
+  {{- range .Values.vaultAgent.secrets }}
+  {{ .name }}.ctmpl: |-
+    {{ "{{" }}- with secret "{{ .secretPath }}" {{ "}}" }}
+    {{- if eq .format "json" }}
+    {{ "{{" }} .Data.data | toJSON {{ "}}" }}
+    {{- else if eq .format "raw" }}
+    {{ "{{" }} .Data.data.{{ index .keys 0 }} {{ "}}" }}
+    {{- else }}
+    {{- range .keys }}
+    {{ . | upper }}={{ "{{" }} .Data.data.{{ . }} {{ "}}" }}
+    {{- end }}
+    {{- end }}
+    {{ "{{" }}- end {{ "}}" }}
+  {{- end }}
