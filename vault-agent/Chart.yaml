@@ -2,5 +2,5 @@ apiVersion: v2
 name: vault-agent
 description: Vault Agent renderer for the demo backend
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "2.0"
