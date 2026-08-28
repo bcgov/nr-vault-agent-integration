@@ -1,6 +1,6 @@
 vaultAgent:
   image:
-    repository: hashicorp/vault
+    repository: docker.io/hashicorp/vault
     tag: 2.0.4
     pullPolicy: IfNotPresent
   vaultAddress: https://knox.io.nrs.gov.bc.ca
