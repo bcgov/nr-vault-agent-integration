@@ -37,7 +37,7 @@ data:
     {{- end }}
   {{- range .Values.vaultAgent.secrets }}
   {{ .name }}.ctmpl: |-
-    {{ "{{" }}- with secret "{{ .secretPath }}" {{ "}}" }}
+    {{ "{{" }}- with secret "{{ $.Values.vaultAgent.vaultMount }}/data/{{ .secretPath }}" {{ "}}" }}
     {{- if eq .format "json" }}
     {{ "{{" }} .Data.data | toJSON {{ "}}" }}
     {{- else if eq .format "raw" }}
